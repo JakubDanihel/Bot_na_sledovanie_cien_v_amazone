@@ -4,29 +4,28 @@ import smtplib
 import os
 from dotenv import load_dotenv
 
-# Načítanie premenných prostredia zo súboru .env
+# ziskanie premennych z zuboru .env kde su ulozene prihlasovacie udaje (pre tento pripad bol pouzity gmail)
 load_dotenv()
 
-# --- Konfigurácia ---
-# URL adresa produktu na Amazone, ktorého cenu chcete sledovať
-# DÔLEŽITÉ: Nahraďte túto URL adresou skutočného produktu!
+# Konfiguracia
+# URL adresa produktu na Amazone, ktoreho cenu chceme sledovat
+# JE POTREBNE NAHRAT SKUTOCNU ADRESU PRODUKTU
 URL = "https://www.amazon.com/dp/B075CYMYK6?psc=1&ref_=cm_sw_r_cp_ud_ct_FM9M699VKHTT47YD50Q6"
 
-# Cieľová cena v EUR. Ak cena klesne pod túto hodnotu, pošle sa e-mail.
+# Cielova cena produktu pre ktoru sa spusti oznam ak cena poklesne nizsie
 TARGET_PRICE = 100.0
 
-# Načítanie údajov pre odoslanie e-mailu zo súboru .env
+# Nacitanie udajov z .env ako premenne prostredia (v ramci bezpecnosti sa to neuklada do suboru
 MY_EMAIL = os.getenv("MY_EMAIL")
 MY_PASSWORD = os.getenv("MY_PASSWORD")
 RECIPIENT_EMAIL = os.getenv("RECIPIENT_EMAIL")
 
-# --- Získanie ceny produktu ---
+# ziskanie ceny produktu
 
 def get_product_price():
-    """
-    Funkcia na získanie ceny produktu z Amazonu.
-    Vráti cenu ako float, alebo None, ak sa cenu nepodarí získať.
-    """
+    # Funkcia na ziskanie ceny. Cenu vrati ako float alebo none ak nie je
+
+    #nastavenie headers aby amazon nevypol aplikaciu
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9,sk;q=0.8"
@@ -38,35 +37,33 @@ def get_product_price():
 
         soup = bs4.BeautifulSoup(response.text, "html.parser")
 
-        # Nájdenie ceny - toto sa môže líšiť v závislosti od produktu a krajiny Amazonu
+        # Hladanie ceny (moze toto miesto byt ine ak sa jedna o iny produkt alebo krajinu amazonu)
         price_whole = soup.find(class_="a-price-whole")
         price_fraction = soup.find(class_="a-price-fraction")
         
-        # Pokus o nájdenie názvu produktu
+        # Pokus o najdenie projektu
         product_title_element = soup.find(id="productTitle")
-        product_title = product_title_element.getText().strip() if product_title_element else "Neznámy produkt"
+        product_title = product_title_element.getText().strip() if product_title_element else "Neznamy produkt"
 
 
         if price_whole and price_fraction:
             price_text = f"{price_whole.getText().strip()}{price_fraction.getText().strip()}"
             return float(price_text), product_title
         else:
-            print("Nepodarilo sa nájsť cenu na stránke. Skontrolujte HTML štruktúru.")
+            print("Nepodarilo sa najst cenu. Skontroluj strukturo HTML.")
             return None, product_title
 
     except requests.exceptions.RequestException as e:
-        print(f"Chyba pri sťahovaní stránky: {e}")
-        return None, "Neznámy produkt"
+        print(f"Chyba pri stahovani stranky: {e}")
+        return None, "Neznamy produkt"
     except (AttributeError, ValueError) as e:
         print(f"Chyba pri spracovaní ceny: {e}")
-        return None, "Neznámy produkt"
+        return None, "Neznamy produkt"
 
-# --- Posielanie e-mailu ---
+# Odoslanie mailu s varovanim
 
 def send_email_alert(price, product_title):
-    """
-    Odošle e-mailové upozornenie o nízkej cene.
-    """
+
     message = f"Subject:Amazon Price Alert!\n\nCena pre produkt '{product_title}' klesla na {price} EUR!\n\nLink na produkt:\n{URL}".encode('utf-8')
 
     try:
@@ -78,25 +75,25 @@ def send_email_alert(price, product_title):
                 to_addrs=RECIPIENT_EMAIL,
                 msg=message
             )
-        print("E-mailové upozornenie úspešne odoslané!")
+        print("Poslane uspesne")
     except Exception as e:
         print(f"Chyba pri odosielaní e-mailu: {e}")
 
 
-# --- Hlavná logika ---
+# MAIN
 
 if __name__ == "__main__":
-    # Overenie, či sú načítané všetky potrebné premenné prostredia
+    # Overenie ci su vsetky hodnoty nacitane (premenne prostredia)
     if not all([MY_EMAIL, MY_PASSWORD, RECIPIENT_EMAIL]):
-        print("Chyba: Nie sú nastavené všetky potrebné premenné prostredia v .env súbore (MY_EMAIL, MY_PASSWORD, RECIPIENT_EMAIL).")
+        print("Chyba: Nie su nastavene vsetky hodnoty v prostredi v .env súbore (MY_EMAIL, MY_PASSWORD, RECIPIENT_EMAIL).")
     else:
         current_price, product_name = get_product_price()
 
         if current_price is not None:
-            print(f"Aktuálna cena produktu '{product_name}' je: {current_price} EUR")
+            print(f"Aktualna cena produktu '{product_name}' je: {current_price} EUR")
             
             if current_price < TARGET_PRICE:
-                print("Cena je nižšia ako cieľová. Posielam e-mail...")
+                print("Cena je nizsia ako hranica. Posielam e-mail...")
                 send_email_alert(current_price, product_name)
             else:
-                print("Cena je stále vyššia ako cieľová. E-mail sa neposiela.")
+                print("Cena je vysia ako hranica. E-mail sa neposiela.")
